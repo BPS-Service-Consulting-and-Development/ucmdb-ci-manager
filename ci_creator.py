@@ -133,8 +133,7 @@ password = config["password"]
 excel_file = config["excel_file"]
 
 # Ejecutar el flujo principal
-authentication_token = '123'
-#authentication_token = get_auth_token(username, password)
+authentication_token = get_auth_token(username, password)
 ci_array = leer_y_procesar_excel(excel_file)
 print(ci_array)
 create_relation(ci_array, authentication_token)
