@@ -133,7 +133,7 @@ def generar_ips(nombre_proyecto, cantidad_ips):
         print(f"Error al generar las direcciones IP: {e}")
         return []
 
-def leer_y_procesar_excel(excel_file, nombre_proyecto):
+def leer_y_procesar_excel(excel_file, nombre_proyecto, ci_type):
     try:
         df = pd.read_excel(excel_file, sheet_name='Inventario', engine='openpyxl')
         unique_entries = {}  # Diccionario para mantener nombres únicos con sus colecciones
@@ -152,7 +152,7 @@ def leer_y_procesar_excel(excel_file, nombre_proyecto):
             ci_array.append({
                 "relation": "containment",
                 "ci_list": [
-                    {"ci_name": name, "ci_type": "Unix"},
+                    {"ci_name": name, "ci_type": ci_type},
                     *ips,
                     {"ci_name": collection, "ci_type": "collection"}
                 ]
@@ -172,9 +172,17 @@ def main():
     # Solicitar nombre del proyecto
     nombre_proyecto = input("Ingrese el nombre del proyecto: ")
 
+    # Solicitar tipo de CI
+    while True:
+        ci_type = input("Ingrese el tipo de CI (Unix/Windows): ").strip()
+        if ci_type in ["Unix", "Windows"]:
+            break
+        else:
+            print("Tipo de CI inválido. Por favor ingrese 'Unix' o 'Windows'.")
+
     # Ejecutar el flujo principal
     authentication_token = get_auth_token(username, password)
-    ci_array = leer_y_procesar_excel(excel_file, nombre_proyecto)
+    ci_array = leer_y_procesar_excel(excel_file, nombre_proyecto, ci_type)
     print(ci_array)
     create_relation(ci_array, authentication_token, nombre_proyecto)
 
