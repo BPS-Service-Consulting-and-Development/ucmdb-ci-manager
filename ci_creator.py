@@ -54,7 +54,7 @@ def create_ci(authentication_token, ci_name, ci_type):
         print(f"Failed to create CI. Status code: {response.status_code}")
         print("Response:", response.text)
 
-def create_relation(json_data, authentication_token):
+def create_relation(json_data, authentication_token, nombre_proyecto):
     url = "https://10.129.200.40:8443/rest-api/dataModel/"
     headers = {
         "Authorization": f"Bearer {authentication_token}",
@@ -63,7 +63,20 @@ def create_relation(json_data, authentication_token):
     with open('hosts_input.txt', 'w') as hosts_file:
         for i, relation in enumerate(json_data):
             ci_list = relation["ci_list"]
+            nombre_collection = ci_list[2]["ci_name"]  # Obtener el nombre de la colección de la cuarta columna
             cis = [
+                {
+                    "ucmdbId": str(i*2 + 3),
+                    "displayLabel": nombre_proyecto,
+                    "type": "business_application",
+                    "properties": {"name": nombre_proyecto}
+                },
+                {
+                    "ucmdbId": str(i*2 + 4),
+                    "displayLabel": nombre_collection,
+                    "type": "ci_collection",
+                    "properties": {"name": nombre_collection}
+                },
                 {
                     "ucmdbId": str(i*2 + 1),
                     "displayLabel": ci_list[0]["ci_name"],
@@ -84,41 +97,64 @@ def create_relation(json_data, authentication_token):
                     "properties": {"description": "relationci"},
                     "end1Id": str(i*2 + 1),
                     "end2Id": str(i*2 + 2)
+                },
+                {
+                    "ucmdbId": f"r{i+2}",
+                    "type": relation["relation"],
+                    "properties": {"description": "relationci"},
+                    "end1Id": str(i*2 + 3),
+                    "end2Id": str(i*2 + 4)
+                },
+                {
+                    "ucmdbId": f"r{i+3}",
+                    "type": relation["relation"],
+                    "properties": {"description": "relationci"},
+                    "end1Id": str(i*2 + 4),
+                    "end2Id": str(i*2 + 1)
                 }
             ]
             body = {"cis": cis, "relations": relations}        
             hosts_file.write(f"{ci_list[1]['ci_name']} {ci_list[0]['ci_name']}\n")
-        try:
-            response = requests.post(url, json=body, headers=headers, verify=False)
-            logging.info(f"Request Body for relation {i+1}: {json.dumps(body, indent=2)}")
-            logging.info(f"Response for relation {i+1}: {response.status_code}, {response.text}")
-            print(f"Response for relation {i+1}: {response.status_code}, {response.text}")
-        except requests.exceptions.RequestException as e:
-            logging.error(f"Request failed for relation {i+1}: {e}")
-            print(f"Request failed for relation {i+1}: {e}")
+            try:
+                response = requests.post(url, json=body, headers=headers, verify=False)
+                logging.info(f"Request Body for relation {i+1}: {json.dumps(body, indent=2)}")
+                logging.info(f"Response for relation {i+1}: {response.status_code}, {response.text}")
+                print(f"Response for relation {i+1}: {response.status_code}, {response.text}")
+            except requests.exceptions.RequestException as e:
+                logging.error(f"Request failed for relation {i+1}: {e}")
+                print(f"Request failed for relation {i+1}: {e}")
 
-def generar_ips(fecha_actual, cantidad_ips):
+def generar_ips(nombre_proyecto, cantidad_ips):
     try:
-        fecha_str = fecha_actual.strftime("%Y%m%d")
-        resultado = subprocess.run(['python', 'ip_generator.py', fecha_str, str(cantidad_ips)], capture_output=True, text=True)
+        resultado = subprocess.run(['python', 'ip_generator.py', nombre_proyecto, str(cantidad_ips)], capture_output=True, text=True)
         ip_list = resultado.stdout.strip().split('\n')
         return [{"ci_name": ip, "ci_type": "ip_address"} for ip in ip_list]
     except Exception as e:
         print(f"Error al generar las direcciones IP: {e}")
         return []
 
-def leer_y_procesar_excel(excel_file):
+def leer_y_procesar_excel(excel_file, nombre_proyecto):
     try:
         df = pd.read_excel(excel_file, sheet_name='Inventario', engine='openpyxl')
-        names_list = df.iloc[:, 1].drop_duplicates().tolist()
+        unique_entries = {}  # Diccionario para mantener nombres únicos con sus colecciones
+        for _, row in df.iterrows():
+            name = row.iloc[1]
+            collection = row.iloc[3]
+            if name not in unique_entries:
+                unique_entries[name] = collection
+        
+        names_list = list(unique_entries.keys())
+        collections_list = list(unique_entries.values())
+        
         ci_array = []
-        for item in names_list:
-            ips = generar_ips(datetime.now(), 1)
+        for name, collection in zip(names_list, collections_list):
+            ips = generar_ips(nombre_proyecto, 1)
             ci_array.append({
                 "relation": "containment",
                 "ci_list": [
-                    {"ci_name": item, "ci_type": "Unix"},
-                    *ips 
+                    {"ci_name": name, "ci_type": "Unix"},
+                    *ips,
+                    {"ci_name": collection, "ci_type": "collection"}
                 ]
             })
         return ci_array
@@ -126,14 +162,21 @@ def leer_y_procesar_excel(excel_file):
         print(f"Error al leer el archivo Excel: {e}")
         return []
 
-# Cargar configuración desde el archivo config.json
-config = load_config('config.json')
-username = config["username"]
-password = config["password"]
-excel_file = config["excel_file"]
+def main():
+    # Cargar configuración desde el archivo config.json
+    config = load_config('config.json')
+    username = config["username"]
+    password = config["password"]
+    excel_file = config["excel_file"]
+    
+    # Solicitar nombre del proyecto
+    nombre_proyecto = input("Ingrese el nombre del proyecto: ")
 
-# Ejecutar el flujo principal
-authentication_token = get_auth_token(username, password)
-ci_array = leer_y_procesar_excel(excel_file)
-print(ci_array)
-create_relation(ci_array, authentication_token)
+    # Ejecutar el flujo principal
+    authentication_token = get_auth_token(username, password)
+    ci_array = leer_y_procesar_excel(excel_file, nombre_proyecto)
+    print(ci_array)
+    create_relation(ci_array, authentication_token, nombre_proyecto)
+
+if __name__ == "__main__":
+    main()
