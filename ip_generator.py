@@ -37,11 +37,27 @@ def ips_generator(init_range, num_ips, project_name, file_name):
     for ip in generated_ips:
         print(ip)
 
-    # Guardar las IPs en el archivo CSV
-    with open(file_name, 'a', newline='') as csvfile:
-        writer = csv.writer(csvfile)
-        row = [project_name] + generated_ips
-        writer.writerow(row)
+    # Leer el archivo CSV y actualizar la línea del proyecto si existe
+    updated = False
+    if os.path.isfile(file_name):
+        with open(file_name, 'r', newline='') as csvfile:
+            reader = csv.reader(csvfile)
+            rows = list(reader)
+        
+        with open(file_name, 'w', newline='') as csvfile:
+            writer = csv.writer(csvfile)
+            for row in rows:
+                if row[0] == project_name:
+                    row.extend(generated_ips)
+                    updated = True
+                writer.writerow(row)
+    
+    # Si el proyecto no existe, añadir una nueva línea
+    if not updated:
+        with open(file_name, 'a', newline='') as csvfile:
+            writer = csv.writer(csvfile)
+            row = [project_name] + generated_ips
+            writer.writerow(row)
 
     #print(f'Se han generado {num_ips} IPs consecutivas para el proyecto {project_name}.')
     #print(f'Se han exportado las IPs al archivo "{file_name}".')
