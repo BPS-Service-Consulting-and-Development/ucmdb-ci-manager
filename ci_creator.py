@@ -4,10 +4,11 @@ import subprocess
 import pandas as pd
 from datetime import datetime
 import logging
+import re
 
 # Configuración del sistema de logs
 logging.basicConfig(filename='create_ci.log', level=logging.INFO, 
-                    format='%(asctime)s %(levelname)s:%(message)s')
+                    format='%(asctime)s %(message)s:%(message)s')
 
 # Función para cargar configuración desde un archivo JSON
 def load_config(config_file):
@@ -63,7 +64,7 @@ def create_relation(json_data, authentication_token, nombre_proyecto):
     with open('hosts_input.txt', 'w') as hosts_file:
         for i, relation in enumerate(json_data):
             ci_list = relation["ci_list"]
-            nombre_collection = ci_list[2]["ci_name"]  # Obtener el nombre de la colección de la cuarta columna
+            nombre_collection = ci_list[2]["ci_name"]  # Obtener el nombre de la colección de la columna especificada
             cis = [
                 {
                     "ucmdbId": str(i*2 + 3),
@@ -133,19 +134,24 @@ def generar_ips(nombre_proyecto, cantidad_ips):
         print(f"Error al generar las direcciones IP: {e}")
         return []
 
-def leer_y_procesar_excel(excel_file, nombre_proyecto, ci_type):
+def leer_y_procesar_excel(excel_file, nombre_proyecto, ci_type, collection_column):
     try:
         df = pd.read_excel(excel_file, sheet_name='Inventario', engine='openpyxl')
         unique_entries = {}  # Diccionario para mantener nombres únicos con sus colecciones
-        for _, row in df.iterrows():
-            name = row.iloc[1]
-            collection = row.iloc[3]
-            if name not in unique_entries:
-                unique_entries[name] = collection
+        collection_index = ord(collection_column.upper()) - ord('A')  # Convertir letra de columna a índice
         
+        for _, row in df.iterrows():
+            name = row.iloc[0]
+            collection = row.iloc[collection_index]
+            match = re.search(r'.*-(error|warning)-(.*)', name)
+            if match:
+                extracted_name = match.group(2)
+                if extracted_name not in unique_entries:
+                    unique_entries[extracted_name] = collection
+
         names_list = list(unique_entries.keys())
         collections_list = list(unique_entries.values())
-        
+
         ci_array = []
         for name, collection in zip(names_list, collections_list):
             ips = generar_ips(nombre_proyecto, 1)
@@ -180,11 +186,15 @@ def main():
         else:
             print("Tipo de CI inválido. Por favor ingrese 'Unix' o 'Windows'.")
 
+    # Solicitar la letra de la columna de CI Collection
+    collection_column = input("Letra de la columna de CI Collection? ").strip().upper()
+
     # Ejecutar el flujo principal
     authentication_token = get_auth_token(username, password)
-    ci_array = leer_y_procesar_excel(excel_file, nombre_proyecto, ci_type)
+    ci_array = leer_y_procesar_excel(excel_file, nombre_proyecto, ci_type, collection_column)
     print(ci_array)
     create_relation(ci_array, authentication_token, nombre_proyecto)
 
 if __name__ == "__main__":
     main()
+
