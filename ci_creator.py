@@ -117,10 +117,10 @@ def create_relation(json_data, authentication_token, nombre_proyecto):
             body = {"cis": cis, "relations": relations}        
             hosts_file.write(f"{ci_list[1]['ci_name']} {ci_list[0]['ci_name']}\n")
             try:
-                #response = requests.post(url, json=body, headers=headers, verify=False)
+                response = requests.post(url, json=body, headers=headers, verify=False)
                 logging.info(f"Request Body for relation {i+1}: {json.dumps(body, indent=2)}")
-                #logging.info(f"Response for relation {i+1}: {response.status_code}, {response.text}")
-                #print(f"Response for relation {i+1}: {response.status_code}, {response.text}")
+                logging.info(f"Response for relation {i+1}: {response.status_code}, {response.text}")
+                print(f"Response for relation {i+1}: {response.status_code}, {response.text}")
             except requests.exceptions.RequestException as e:
                 logging.error(f"Request failed for relation {i+1}: {e}")
                 print(f"Request failed for relation {i+1}: {e}")
@@ -193,8 +193,7 @@ def main():
     collection_prefix = input("Prefijo de CI Collection? ").strip()
 
     # Ejecutar el flujo principal
-    authentication_token = 123
-    #authentication_token = get_auth_token(username, password)
+    authentication_token = get_auth_token(username, password)
     ci_array = leer_y_procesar_excel(excel_file, nombre_proyecto, ci_type, collection_column, collection_prefix)
     print(ci_array)
     create_relation(ci_array, authentication_token, nombre_proyecto)
