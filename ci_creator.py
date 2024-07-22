@@ -143,7 +143,7 @@ def leer_y_procesar_excel(excel_file, nombre_proyecto, ci_type, collection_colum
         for _, row in df.iterrows():
             name = row.iloc[0]
             collection = row.iloc[collection_index]
-            match = re.search(r'.*-(error|warning)-(.*)', name)
+            match = re.search(r'[^-]+-(error|warning)-([^-.]+(?:-[^-.]+)*)', name)
             if match:
                 extracted_name = match.group(2)
                 if extracted_name not in unique_entries:
